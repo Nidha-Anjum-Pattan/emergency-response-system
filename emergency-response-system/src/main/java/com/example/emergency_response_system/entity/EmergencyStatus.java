@@ -1,0 +1,16 @@
+package com.example.emergency_response_system.entity;
+
+public enum EmergencyStatus {
+    CREATED,
+    SEARCHING_AMBULANCE,
+    NO_AMBULANCE_AVAILABLE,
+    AMBULANCE_ASSIGNED,
+    ENROUTE_TO_VICTIM,
+    ARRIVED_AT_VICTIM,
+    HOSPITAL_SELECTED,
+    HOSPITAL_ACCEPTED,
+    HOSPITAL_REJECTED,
+    IN_TRANSIT_TO_HOSPITAL,
+    COMPLETED,
+    CANCELLED
+}
