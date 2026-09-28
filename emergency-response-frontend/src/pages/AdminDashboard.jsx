@@ -1,7 +1,34 @@
 import React, { useEffect, useState } from "react";
 import api from "../services/api";
 import RealtimeMap from "../components/RealtimeMap";
-import { Shield, PlusCircle, Hospital as HospitalIcon, Car, Activity, MapPin, CheckCircle, Lock, Globe, Search, RefreshCw, Download, Edit3, UserCheck, X, FileText, Phone, BarChart2 } from "lucide-react";
+import { 
+  Shield, 
+  PlusCircle, 
+  Hospital as HospitalIcon, 
+  Car, 
+  Activity, 
+  MapPin, 
+  CheckCircle, 
+  Lock, 
+  Globe, 
+  Search, 
+  RefreshCw, 
+  Download, 
+  Edit3, 
+  UserCheck, 
+  X, 
+  FileText, 
+  Phone, 
+  BarChart2,
+  BedDouble,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  LogOut,
+  SlidersHorizontal,
+  TrendingUp,
+  UserPlus
+} from "lucide-react";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -18,7 +45,7 @@ export default function AdminDashboard() {
   const [ambulances, setAmbulances] = useState([]);
   const [activeRequests, setActiveRequests] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [tabView, setTabView] = useState("overview"); // 'overview' | 'hospitals' | 'ambulances' | 'analytics'
+  const [tabView, setTabView] = useState("overview"); // 'overview' | 'hospitals' | 'ambulances'
   const [statusFilter, setStatusFilter] = useState("ALL"); // 'ALL' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
 
   // Modals
@@ -95,7 +122,7 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       await api.post("/api/emergency/admin/provision-hospital", hospitalForm);
-      alert(`🏥 Hospital ER Unit "${hospitalForm.name}" Provisioned Successfully!\nCredentials: ${hospitalForm.email} / ${hospitalForm.password}`);
+      alert(`Hospital ER Unit "${hospitalForm.name}" Provisioned Successfully!\nCredentials: ${hospitalForm.email} / ${hospitalForm.password}`);
       setShowHospitalModal(false);
       await loadAdminData();
     } catch (err) {
@@ -110,7 +137,7 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       await api.post("/api/emergency/admin/provision-ambulance", ambulanceForm);
-      alert(`🚑 Ambulance Unit "${ambulanceForm.driverName}" Provisioned Successfully!\nVehicle: ${ambulanceForm.vehicleNumber}\nCredentials: ${ambulanceForm.email} / ${ambulanceForm.password}`);
+      alert(`Ambulance Unit "${ambulanceForm.driverName}" Provisioned Successfully!\nVehicle: ${ambulanceForm.vehicleNumber}\nCredentials: ${ambulanceForm.email} / ${ambulanceForm.password}`);
       setShowAmbulanceModal(false);
       await loadAdminData();
     } catch (err) {
@@ -120,34 +147,53 @@ export default function AdminDashboard() {
     }
   };
 
-  // Export System Audit Trail Log to CSV
+  // Fixed Export System Audit Trail Log to CSV using Blob
   const exportToCsv = () => {
     if (activeRequests.length === 0) {
       alert("No dispatch records available to export.");
       return;
     }
 
-    const headers = ["Dispatch_ID", "Victim_Name", "Victim_Phone", "Category", "Priority", "Ambulance_Vehicle", "Hospital_Name", "Status", "Created_At"];
+    const headers = [
+      "Dispatch_ID", 
+      "Victim_Name", 
+      "Victim_Phone", 
+      "Category", 
+      "Priority", 
+      "Ambulance_Vehicle", 
+      "Hospital_Name", 
+      "Status", 
+      "Created_At"
+    ];
+
+    const escapeCsv = (val) => {
+      if (val === null || val === undefined) return '""';
+      const stringified = String(val).replace(/"/g, '""');
+      return `"${stringified}"`;
+    };
+
     const rows = activeRequests.map((r, idx) => [
-      `#${idx + 1}`,
-      `"${r.victim ? r.victim.name : "Express Guest"}"`,
-      `"${r.victim ? r.victim.phone : "Guest Phone"}"`,
-      r.category,
-      r.priorityLevel,
-      `"${r.ambulance ? r.ambulance.vehicleNumber : "Unassigned"}"`,
-      `"${r.hospital ? r.hospital.hospitalName : "Unassigned"}"`,
-      r.status,
-      `"${new Date(r.createdAt).toLocaleString()}"`
+      escapeCsv(`DISP-${idx + 1}`),
+      escapeCsv(r.victim ? r.victim.name : "Express Guest"),
+      escapeCsv(r.victim ? r.victim.phone : "N/A"),
+      escapeCsv(r.category || "GENERAL"),
+      escapeCsv(r.priorityLevel || "STANDARD"),
+      escapeCsv(r.ambulance ? r.ambulance.vehicleNumber : "Unassigned"),
+      escapeCsv(r.hospital ? r.hospital.hospitalName : "Unassigned"),
+      escapeCsv(r.status || "UNKNOWN"),
+      escapeCsv(r.createdAt ? new Date(r.createdAt).toLocaleString() : new Date().toLocaleString())
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", `Emergency_Dispatches_Audit_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const logout = () => {
@@ -167,226 +213,190 @@ export default function AdminDashboard() {
     return matchesSearch;
   });
 
-  // Calculate Emergency Category Distribution
-  const categoryCounts = activeRequests.reduce((acc, r) => {
-    const cat = r.category || "OTHER";
-    acc[cat] = (acc[cat] || 0) + 1;
-    return acc;
-  }, {});
-
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", color: "#f8fafc", fontFamily: "Inter, sans-serif" }}>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       
       {/* Top Navigation Header */}
-      <header style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155", padding: "16px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <div style={{ backgroundColor: "#2563eb", width: "44px", height: "44px", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", boxShadow: "0 4px 14px rgba(37,99,235,0.4)" }}>
-            🛡️
-          </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 800, color: "white" }}>Emergency Command Room</h2>
-              <span style={{ backgroundColor: "#166534", color: "#86efac", fontSize: "11px", fontWeight: 800, padding: "2px 10px", borderRadius: "12px", border: "1px solid #22c55e" }}>
-                🟢 SYSTEM ACTIVE
-              </span>
+      <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-xs sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-xs">
+              <Shield className="w-6 h-6 text-emerald-400" />
             </div>
-            <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 600 }}>Multi-Role Emergency Dispatch & Hospital Capacity Monitor</span>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-xl font-bold tracking-tight text-slate-900">Emergency Command Center</h1>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  SYSTEM ACTIVE
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">Multi-Role Emergency Dispatch & Hospital Infrastructure Monitor</p>
+            </div>
           </div>
-        </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {/* Export Audit Log Button */}
-          <button
-            onClick={exportToCsv}
-            style={{
-              backgroundColor: "#166534",
-              color: "white",
-              border: "1px solid #22c55e",
-              padding: "8px 14px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: "13px",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
-            }}
-          >
-            <Download size={16} /> Export Audit Log (.csv)
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            {/* Export Audit Log Button */}
+            <button
+              onClick={exportToCsv}
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 rounded-lg font-semibold text-xs transition-all shadow-xs cursor-pointer"
+            >
+              <Download className="w-4 h-4" /> Export Audit Log (.csv)
+            </button>
 
-          {/* Provision Hospital */}
-          <button
-            onClick={() => setShowHospitalModal(true)}
-            style={{
-              backgroundColor: "#059669",
-              color: "white",
-              border: "none",
-              padding: "8px 14px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: "13px",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
-            }}
-          >
-            <HospitalIcon size={16} /> + Provision Hospital
-          </button>
+            {/* Provision Hospital */}
+            <button
+              onClick={() => setShowHospitalModal(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs transition-all shadow-xs cursor-pointer"
+            >
+              <HospitalIcon className="w-4 h-4 text-emerald-400" /> + Provision Hospital
+            </button>
 
-          {/* Provision Ambulance */}
-          <button
-            onClick={() => setShowAmbulanceModal(true)}
-            style={{
-              backgroundColor: "#2563eb",
-              color: "white",
-              border: "none",
-              padding: "8px 14px",
-              borderRadius: "8px",
-              cursor: "pointer",
-              fontWeight: 700,
-              fontSize: "13px",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
-            }}
-          >
-            <Car size={16} /> + Provision Ambulance
-          </button>
+            {/* Provision Ambulance */}
+            <button
+              onClick={() => setShowAmbulanceModal(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-xs transition-all shadow-xs cursor-pointer"
+            >
+              <Car className="w-4 h-4" /> + Provision Ambulance
+            </button>
 
-          <button onClick={logout} style={{ backgroundColor: "#334155", color: "#cbd5e1", border: "none", padding: "8px 14px", borderRadius: "8px", cursor: "pointer", fontWeight: 600 }}>
-            Logout
-          </button>
+            <button 
+              onClick={logout} 
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold text-xs border border-slate-300 transition-all cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Logout
+            </button>
+          </div>
         </div>
       </header>
 
-      <div style={{ maxWidth: "1300px", margin: "28px auto", padding: "0 20px" }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         
         {/* KPI System Analytics Overview Cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "16px", marginBottom: "28px" }}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           
-          <div style={{ backgroundColor: "#1e293b", padding: "18px", borderRadius: "16px", border: "1px solid #334155" }}>
-            <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 700 }}>Total Dispatches</span>
-            <strong style={{ fontSize: "28px", color: "white", display: "block", marginTop: "4px", fontWeight: 800 }}>{stats.totalRequests}</strong>
-            <span style={{ fontSize: "11px", color: "#38bdf8" }}>System Audit Log</span>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider">Total Dispatches</span>
+              <Activity className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-slate-900">{stats.totalRequests}</div>
+            <span className="text-[11px] text-slate-500 font-medium">System Audit Log</span>
           </div>
 
-          <div style={{ backgroundColor: "#1e293b", padding: "18px", borderRadius: "16px", border: "1px solid #334155" }}>
-            <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 700 }}>Active Missions</span>
-            <strong style={{ fontSize: "28px", color: "#f59e0b", display: "block", marginTop: "4px", fontWeight: 800 }}>{stats.activeRequests}</strong>
-            <span style={{ fontSize: "11px", color: "#fbbf24" }}>En-Route & Intake</span>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider">Active Missions</span>
+              <Clock className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-amber-600">{stats.activeRequests}</div>
+            <span className="text-[11px] text-amber-700 font-medium">En-Route & Intake</span>
           </div>
 
-          <div style={{ backgroundColor: "#1e293b", padding: "18px", borderRadius: "16px", border: "1px solid #334155" }}>
-            <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 700 }}>Fleet Available</span>
-            <strong style={{ fontSize: "28px", color: "#3b82f6", display: "block", marginTop: "4px", fontWeight: 800 }}>{stats.availableAmbulances} / {stats.totalAmbulances}</strong>
-            <span style={{ fontSize: "11px", color: "#60a5fa" }}>Ambulance Units</span>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider">Fleet Units</span>
+              <Car className="w-4 h-4 text-indigo-500" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-indigo-600">{stats.availableAmbulances} / {stats.totalAmbulances}</div>
+            <span className="text-[11px] text-slate-500 font-medium">Available Units</span>
           </div>
 
-          <div style={{ backgroundColor: "#1e293b", padding: "18px", borderRadius: "16px", border: "1px solid #334155" }}>
-            <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 700 }}>ER Beds Free</span>
-            <strong style={{ fontSize: "28px", color: "#10b981", display: "block", marginTop: "4px", fontWeight: 800 }}>{stats.freeBeds} / {stats.totalBeds}</strong>
-            <span style={{ fontSize: "11px", color: "#34d399" }}>Across {stats.totalHospitals} Hospitals</span>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider">ER Capacity</span>
+              <BedDouble className="w-4 h-4 text-emerald-500" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-emerald-600">{stats.freeBeds} / {stats.totalBeds}</div>
+            <span className="text-[11px] text-slate-500 font-medium">{stats.totalHospitals} Hospitals</span>
           </div>
 
-          <div style={{ backgroundColor: "#1e293b", padding: "18px", borderRadius: "16px", border: "1px solid #334155" }}>
-            <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 700 }}>⏱️ Avg Dispatch Time</span>
-            <strong style={{ fontSize: "28px", color: "#a855f7", display: "block", marginTop: "4px", fontWeight: 800 }}>2.4 mins</strong>
-            <span style={{ fontSize: "11px", color: "#c084fc" }}>Rule-Based Scorer</span>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider">Avg Dispatch</span>
+              <TrendingUp className="w-4 h-4 text-purple-500" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-purple-600">2.4m</div>
+            <span className="text-[11px] text-slate-500 font-medium">Rule Engine</span>
           </div>
 
-          <div style={{ backgroundColor: "#1e293b", padding: "18px", borderRadius: "16px", border: "1px solid #334155" }}>
-            <span style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 700 }}>🎯 Success Rate</span>
-            <strong style={{ fontSize: "28px", color: "#ec4899", display: "block", marginTop: "4px", fontWeight: 800 }}>98.5%</strong>
-            <span style={{ fontSize: "11px", color: "#f472b6" }}>Concurrency Safe</span>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider">Success Rate</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            </div>
+            <div className="text-2xl font-bold font-mono text-emerald-600">98.5%</div>
+            <span className="text-[11px] text-slate-500 font-medium">Atomic Lock</span>
           </div>
         </div>
 
         {/* Tab Navigation for Admin Views */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-          <div style={{ display: "flex", gap: "10px", backgroundColor: "#1e293b", padding: "6px", borderRadius: "12px", border: "1px solid #334155" }}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-4">
+          <div className="inline-flex p-1 bg-slate-200/60 rounded-xl">
             <button
               onClick={() => setTabView("overview")}
-              style={{
-                backgroundColor: tabView === "overview" ? "#2563eb" : "transparent",
-                color: "white",
-                border: "none",
-                padding: "8px 18px",
-                borderRadius: "8px",
-                fontWeight: 700,
-                fontSize: "13px",
-                cursor: "pointer"
-              }}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
+                tabView === "overview" 
+                  ? "bg-white text-slate-900 shadow-xs" 
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
             >
-              📋 All Dispatches Log
+              <FileText className="w-4 h-4 text-slate-500" /> Dispatches Audit Log
             </button>
             <button
               onClick={() => setTabView("hospitals")}
-              style={{
-                backgroundColor: tabView === "hospitals" ? "#059669" : "transparent",
-                color: "white",
-                border: "none",
-                padding: "8px 18px",
-                borderRadius: "8px",
-                fontWeight: 700,
-                fontSize: "13px",
-                cursor: "pointer"
-              }}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
+                tabView === "hospitals" 
+                  ? "bg-white text-slate-900 shadow-xs" 
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
             >
-              🏥 Hospitals Manager ({hospitals.length})
+              <HospitalIcon className="w-4 h-4 text-emerald-600" /> Hospitals ({hospitals.length})
             </button>
             <button
               onClick={() => setTabView("ambulances")}
-              style={{
-                backgroundColor: tabView === "ambulances" ? "#2563eb" : "transparent",
-                color: "white",
-                border: "none",
-                padding: "8px 18px",
-                borderRadius: "8px",
-                fontWeight: 700,
-                fontSize: "13px",
-                cursor: "pointer"
-              }}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
+                tabView === "ambulances" 
+                  ? "bg-white text-slate-900 shadow-xs" 
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
             >
-              🚑 Ambulance Fleet ({ambulances.length})
+              <Car className="w-4 h-4 text-indigo-600" /> Ambulances ({ambulances.length})
             </button>
           </div>
 
           {/* Search Input */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", backgroundColor: "#1e293b", padding: "8px 14px", borderRadius: "10px", border: "1px solid #334155", width: "320px" }}>
-            <Search size={18} color="#94a3b8" />
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by victim, category, status..."
+              placeholder="Search victim, category, status..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              style={{ background: "transparent", border: "none", outline: "none", color: "white", width: "100%", fontSize: "13px" }}
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-400"
             />
           </div>
         </div>
 
         {/* VIEW 1: OVERVIEW & SYSTEM DISPATCHES AUDIT LOG */}
         {tabView === "overview" && (
-          <div style={{ backgroundColor: "#1e293b", padding: "24px", borderRadius: "20px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-              <h3 style={{ margin: 0, color: "white", fontWeight: 800, fontSize: "18px" }}>📜 Real-Time System Emergency Dispatches Audit Log</h3>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Real-Time System Emergency Dispatches Log</h2>
+                <p className="text-xs text-slate-500 font-medium">Central record of all triage requests, driver assignments, and hospital telemetry</p>
+              </div>
               
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div className="flex gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
                 {["ALL", "ACTIVE", "COMPLETED", "CANCELLED"].map(st => (
                   <button
                     key={st}
                     onClick={() => setStatusFilter(st)}
-                    style={{
-                      backgroundColor: statusFilter === st ? "#2563eb" : "#334155",
-                      color: "white",
-                      border: "none",
-                      padding: "5px 12px",
-                      borderRadius: "6px",
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      cursor: "pointer"
-                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                      statusFilter === st 
+                        ? "bg-slate-900 text-white shadow-xs" 
+                        : "text-slate-600 hover:bg-slate-200"
+                    }`}
                   >
                     {st}
                   </button>
@@ -395,46 +405,70 @@ export default function AdminDashboard() {
             </div>
 
             {filteredRequests.length === 0 ? (
-              <p style={{ color: "#94a3b8" }}>No emergency dispatches found matching criteria.</p>
+              <div className="p-8 text-center text-slate-500 text-sm">
+                No emergency dispatches found matching criteria.
+              </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr style={{ borderBottom: "2px solid #334155", color: "#94a3b8", fontSize: "13px" }}>
-                      <th style={{ padding: "12px" }}># Serial</th>
-                      <th style={{ padding: "12px" }}>Victim Name</th>
-                      <th style={{ padding: "12px" }}>Category & Triage</th>
-                      <th style={{ padding: "12px" }}>Assigned Ambulance</th>
-                      <th style={{ padding: "12px" }}>Target Hospital</th>
-                      <th style={{ padding: "12px" }}>Status</th>
-                      <th style={{ padding: "12px" }}>Timestamp</th>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-4">Dispatch ID</th>
+                      <th className="py-3 px-4">Victim Details</th>
+                      <th className="py-3 px-4">Category & Priority</th>
+                      <th className="py-3 px-4">Assigned Ambulance</th>
+                      <th className="py-3 px-4">Target Hospital</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Timestamp</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-200 text-sm">
                     {filteredRequests.map((r, idx) => (
-                      <tr key={r.id} style={{ borderBottom: "1px solid #334155", fontSize: "14px" }}>
-                        <td style={{ padding: "14px", fontWeight: 800, color: "#38bdf8" }}>#{idx + 1}</td>
-                        <td style={{ padding: "14px" }}>
-                          <strong style={{ color: "white", display: "block" }}>{r.victim ? r.victim.name : "Express Guest Victim"}</strong>
-                          <span style={{ fontSize: "12px", color: "#94a3b8" }}>📞 {r.victim ? r.victim.phone : "Guest Phone"}</span>
+                      <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-900">#DISP-{idx + 1}</td>
+                        <td className="py-3.5 px-4">
+                          <strong className="text-slate-900 block font-semibold">{r.victim ? r.victim.name : "Express Guest Victim"}</strong>
+                          <span className="text-xs text-slate-500 font-mono">📞 {r.victim ? r.victim.phone : "N/A"}</span>
                         </td>
-                        <td style={{ padding: "14px" }}>
-                          <span style={{ backgroundColor: "#dc2626", color: "white", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                            {r.category} ({r.priorityLevel})
+                        <td className="py-3.5 px-4">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                            {r.category || "GENERAL"} ({r.priorityLevel || "HIGH"})
                           </span>
                         </td>
-                        <td style={{ padding: "14px", fontWeight: 700, color: "#60a5fa" }}>
-                          {r.ambulance ? `🚑 ${r.ambulance.vehicleNumber} (${r.ambulance.driverName})` : "Searching Priority..."}
+                        <td className="py-3.5 px-4 font-medium text-slate-800">
+                          {r.ambulance ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <Car className="w-3.5 h-3.5 text-indigo-600" />
+                              <span className="font-mono">{r.ambulance.vehicleNumber}</span> ({r.ambulance.driverName})
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 font-medium">Searching Unit...</span>
+                          )}
                         </td>
-                        <td style={{ padding: "14px", fontWeight: 700, color: "#34d399" }}>
-                          {r.hospital ? `🏥 ${r.hospital.hospitalName}` : "Pending Selection"}
+                        <td className="py-3.5 px-4 font-medium text-slate-800">
+                          {r.hospital ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <HospitalIcon className="w-3.5 h-3.5 text-emerald-600" />
+                              {r.hospital.hospitalName}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">Pending Assignment</span>
+                          )}
                         </td>
-                        <td style={{ padding: "14px" }}>
-                          <span style={{ padding: "4px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 800, backgroundColor: r.status === "COMPLETED" ? "#166534" : r.status === "CANCELLED" ? "#7f1d1d" : "#1e3a8a", color: r.status === "COMPLETED" ? "#86efac" : r.status === "CANCELLED" ? "#fca5a5" : "#93c5fd" }}>
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                            r.status === "COMPLETED" 
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                              : r.status === "CANCELLED" 
+                              ? "bg-red-50 text-red-700 border border-red-200" 
+                              : "bg-blue-50 text-blue-700 border border-blue-200"
+                          }`}>
                             {r.status}
                           </span>
                         </td>
-                        <td style={{ padding: "14px", fontSize: "12px", color: "#94a3b8" }}>{new Date(r.createdAt).toLocaleString()}</td>
+                        <td className="py-3.5 px-4 text-xs text-slate-500 font-mono">
+                          {new Date(r.createdAt).toLocaleString()}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -446,91 +480,116 @@ export default function AdminDashboard() {
 
         {/* VIEW 2: HOSPITALS MANAGER TAB */}
         {tabView === "hospitals" && (
-          <div style={{ backgroundColor: "#1e293b", padding: "24px", borderRadius: "20px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-              <h3 style={{ margin: 0, color: "white", fontWeight: 800, fontSize: "18px" }}>🏥 Hospital ER Units Directory & Live Bed Capacities</h3>
-              <button onClick={() => setShowHospitalModal(true)} style={{ backgroundColor: "#059669", color: "white", border: "none", padding: "8px 14px", borderRadius: "8px", fontWeight: 700, cursor: "pointer", fontSize: "13px" }}>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6">
+            <div className="flex justify-between items-center mb-5">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Hospital ER Directory & Capacities</h2>
+                <p className="text-xs text-slate-500 font-medium">Manage hospital infrastructure, total beds, and ICU operational status</p>
+              </div>
+              <button 
+                onClick={() => setShowHospitalModal(true)} 
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-all cursor-pointer shadow-xs"
+              >
                 + Provision New Hospital
               </button>
             </div>
 
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #334155", color: "#94a3b8", fontSize: "13px" }}>
-                  <th style={{ padding: "12px" }}>ID</th>
-                  <th style={{ padding: "12px" }}>Hospital Name</th>
-                  <th style={{ padding: "12px" }}>Email / Phone</th>
-                  <th style={{ padding: "12px" }}>Available / Total Beds</th>
-                  <th style={{ padding: "12px" }}>ICU Unit</th>
-                  <th style={{ padding: "12px" }}>Base Coordinates</th>
-                </tr>
-              </thead>
-              <tbody>
-                {hospitals.map(h => (
-                  <tr key={h.id} style={{ borderBottom: "1px solid #334155", fontSize: "14px" }}>
-                    <td style={{ padding: "14px", fontWeight: 800, color: "#38bdf8" }}>#{h.id}</td>
-                    <td style={{ padding: "14px", fontWeight: 800, color: "white" }}>🏥 {h.hospitalName}</td>
-                    <td style={{ padding: "14px" }}>
-                      <div style={{ fontSize: "13px", color: "#cbd5e1" }}>{h.user?.email}</div>
-                      <span style={{ fontSize: "12px", color: "#38bdf8" }}>📞 {h.user?.phone || "040-23456789"}</span>
-                    </td>
-                    <td style={{ padding: "14px" }}>
-                      <span style={{ backgroundColor: "#065f46", color: "#a7f3d0", padding: "4px 10px", borderRadius: "8px", fontSize: "13px", fontWeight: 800 }}>
-                        🛏️ {h.availableBeds} / {h.totalBeds} Free
-                      </span>
-                    </td>
-                    <td style={{ padding: "14px" }}>
-                      <span style={{ backgroundColor: h.hasIcu ? "#166534" : "#7f1d1d", color: h.hasIcu ? "#86efac" : "#fca5a5", padding: "3px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>
-                        {h.hasIcu ? "🟢 ICU Operational" : "🔴 General ER Only"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "14px", fontSize: "12px", color: "#94a3b8" }}>[{h.latitude}, {h.longitude}]</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-4">ID</th>
+                    <th className="py-3 px-4">Hospital Name</th>
+                    <th className="py-3 px-4">Contact Details</th>
+                    <th className="py-3 px-4">Available / Total Beds</th>
+                    <th className="py-3 px-4">ICU Status</th>
+                    <th className="py-3 px-4">Coordinates</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-sm">
+                  {hospitals.map(h => (
+                    <tr key={h.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">#HOSP-{h.id}</td>
+                      <td className="py-3.5 px-4 font-semibold text-slate-900">{h.hospitalName}</td>
+                      <td className="py-3.5 px-4">
+                        <div className="text-slate-800 text-xs font-medium">{h.user?.email}</div>
+                        <span className="text-xs text-slate-500 font-mono">📞 {h.user?.phone || "040-23456789"}</span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <BedDouble className="w-3.5 h-3.5" />
+                          <span className="font-mono">{h.availableBeds} / {h.totalBeds} Free</span>
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          h.hasIcu 
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                            : "bg-amber-50 text-amber-700 border border-amber-200"
+                        }`}>
+                          {h.hasIcu ? "ICU Operational" : "General ER Only"}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-xs font-mono text-slate-500">[{h.latitude}, {h.longitude}]</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* VIEW 3: AMBULANCES FLEET MANAGER TAB */}
         {tabView === "ambulances" && (
-          <div style={{ backgroundColor: "#1e293b", padding: "24px", borderRadius: "20px", border: "1px solid #334155" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-              <h3 style={{ margin: 0, color: "white", fontWeight: 800, fontSize: "18px" }}>🚑 Active Ambulance Fleet Roster & Duty Status</h3>
-              <button onClick={() => setShowAmbulanceModal(true)} style={{ backgroundColor: "#2563eb", color: "white", border: "none", padding: "8px 14px", borderRadius: "8px", fontWeight: 700, cursor: "pointer", fontSize: "13px" }}>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6">
+            <div className="flex justify-between items-center mb-5">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Active Ambulance Fleet Roster</h2>
+                <p className="text-xs text-slate-500 font-medium">Real-time driver availability, vehicle numbers, and duty assignment</p>
+              </div>
+              <button 
+                onClick={() => setShowAmbulanceModal(true)} 
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-all cursor-pointer shadow-xs"
+              >
                 + Provision New Ambulance
               </button>
             </div>
 
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #334155", color: "#94a3b8", fontSize: "13px" }}>
-                  <th style={{ padding: "12px" }}>ID</th>
-                  <th style={{ padding: "12px" }}>Vehicle License Plate</th>
-                  <th style={{ padding: "12px" }}>Driver Name & Contact</th>
-                  <th style={{ padding: "12px" }}>Duty Status</th>
-                  <th style={{ padding: "12px" }}>Current GPS Coords</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ambulances.map(a => (
-                  <tr key={a.id} style={{ borderBottom: "1px solid #334155", fontSize: "14px" }}>
-                    <td style={{ padding: "14px", fontWeight: 800, color: "#38bdf8" }}>#{a.id}</td>
-                    <td style={{ padding: "14px", fontWeight: 800, color: "#60a5fa" }}>🚑 {a.vehicleNumber}</td>
-                    <td style={{ padding: "14px" }}>
-                      <strong style={{ color: "white", display: "block" }}>{a.driverName}</strong>
-                      <span style={{ fontSize: "12px", color: "#38bdf8" }}>📞 {a.phone || a.user?.phone}</span>
-                    </td>
-                    <td style={{ padding: "14px" }}>
-                      <span style={{ backgroundColor: a.isAvailable ? "#166534" : "#1e3a8a", color: a.isAvailable ? "#86efac" : "#93c5fd", padding: "4px 10px", borderRadius: "8px", fontSize: "12px", fontWeight: 800 }}>
-                        {a.isAvailable ? "🟢 Duty Standby (Available)" : "🔵 On Active Emergency Mission"}
-                      </span>
-                    </td>
-                    <td style={{ padding: "14px", fontSize: "12px", color: "#94a3b8" }}>[{a.latitude}, {a.longitude}]</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-4">Unit ID</th>
+                    <th className="py-3 px-4">Vehicle Plate #</th>
+                    <th className="py-3 px-4">Driver & Contact</th>
+                    <th className="py-3 px-4">Duty Status</th>
+                    <th className="py-3 px-4">Current Coordinates</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-sm">
+                  {ambulances.map(a => (
+                    <tr key={a.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">#AMB-{a.id}</td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-indigo-700">{a.vehicleNumber}</td>
+                      <td className="py-3.5 px-4">
+                        <strong className="text-slate-900 block font-semibold">{a.driverName}</strong>
+                        <span className="text-xs text-slate-500 font-mono">📞 {a.phone || a.user?.phone || "N/A"}</span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          a.isAvailable 
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                            : "bg-blue-50 text-blue-700 border border-blue-200"
+                        }`}>
+                          {a.isAvailable ? "Duty Standby (Available)" : "On Emergency Mission"}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-xs font-mono text-slate-500">[{a.latitude}, {a.longitude}]</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -538,43 +597,91 @@ export default function AdminDashboard() {
 
       {/* Provision Hospital Modal */}
       {showHospitalModal && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(15,23,42,0.8)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div style={{ backgroundColor: "#1e293b", width: "100%", maxWidth: "540px", borderRadius: "20px", padding: "28px", border: "1px solid #334155", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
-            <h3 style={{ margin: "0 0 18px 0", color: "white", fontSize: "20px", fontWeight: 800 }}>🏥 Provision Official Hospital ER Unit</h3>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl p-6 border border-slate-200 shadow-xl space-y-5">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <HospitalIcon className="w-5 h-5 text-emerald-600" /> Provision Hospital ER Unit
+              </h3>
+              <button onClick={() => setShowHospitalModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            <form onSubmit={handleProvisionHospital}>
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>Hospital Name</label>
-                <input type="text" required placeholder="e.g. Yashoda Hospitals ER Unit" value={hospitalForm.name} onChange={(e) => setHospitalForm({ ...hospitalForm, name: e.target.value })} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", fontSize: "14px" }} />
+            <form onSubmit={handleProvisionHospital} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Hospital Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  placeholder="e.g. Yashoda Hospitals ER Unit" 
+                  value={hospitalForm.name} 
+                  onChange={(e) => setHospitalForm({ ...hospitalForm, name: e.target.value })} 
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-slate-400 focus:outline-none" 
+                />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "14px" }}>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>Login Email</label>
-                  <input type="email" required placeholder="hospital@ems.com" value={hospitalForm.email} onChange={(e) => setHospitalForm({ ...hospitalForm, email: e.target.value })} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", fontSize: "14px" }} />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Login Email</label>
+                  <input 
+                    type="email" 
+                    required 
+                    placeholder="hospital@ems.com" 
+                    value={hospitalForm.email} 
+                    onChange={(e) => setHospitalForm({ ...hospitalForm, email: e.target.value })} 
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-slate-400 focus:outline-none" 
+                  />
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>Contact Phone</label>
-                  <input type="text" required placeholder="10 Digits" value={hospitalForm.phone} onChange={(e) => setHospitalForm({ ...hospitalForm, phone: e.target.value })} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", fontSize: "14px" }} />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Contact Phone</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="10 Digits" 
+                    value={hospitalForm.phone} 
+                    onChange={(e) => setHospitalForm({ ...hospitalForm, phone: e.target.value })} 
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-slate-400 focus:outline-none" 
+                  />
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "14px" }}>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>Total ER Beds</label>
-                  <input type="number" required value={hospitalForm.totalBeds} onChange={(e) => setHospitalForm({ ...hospitalForm, totalBeds: parseInt(e.target.value) })} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", fontSize: "14px" }} />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Total ER Beds</label>
+                  <input 
+                    type="number" 
+                    required 
+                    value={hospitalForm.totalBeds} 
+                    onChange={(e) => setHospitalForm({ ...hospitalForm, totalBeds: parseInt(e.target.value) || 0 })} 
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-slate-400 focus:outline-none" 
+                  />
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>Initial Available Beds</label>
-                  <input type="number" required value={hospitalForm.availableBeds} onChange={(e) => setHospitalForm({ ...hospitalForm, availableBeds: parseInt(e.target.value) })} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", fontSize: "14px" }} />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Initial Available Beds</label>
+                  <input 
+                    type="number" 
+                    required 
+                    value={hospitalForm.availableBeds} 
+                    onChange={(e) => setHospitalForm({ ...hospitalForm, availableBeds: parseInt(e.target.value) || 0 })} 
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-slate-400 focus:outline-none" 
+                  />
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
-                <button type="submit" disabled={loading} style={{ flex: 1, backgroundColor: "#059669", color: "white", border: "none", padding: "12px", borderRadius: "8px", fontWeight: 800, fontSize: "14px", cursor: "pointer" }}>
-                  ✅ Provision Hospital
+              <div className="flex gap-3 pt-3">
+                <button 
+                  type="submit" 
+                  disabled={loading} 
+                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-lg text-sm transition-all shadow-xs cursor-pointer"
+                >
+                  Provision Hospital
                 </button>
-                <button type="button" onClick={() => setShowHospitalModal(false)} style={{ backgroundColor: "#334155", color: "white", border: "none", padding: "12px 18px", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowHospitalModal(false)} 
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-sm transition-all border border-slate-300 cursor-pointer"
+                >
                   Cancel
                 </button>
               </div>
@@ -585,37 +692,80 @@ export default function AdminDashboard() {
 
       {/* Provision Ambulance Modal */}
       {showAmbulanceModal && (
-        <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(15,23,42,0.8)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div style={{ backgroundColor: "#1e293b", width: "100%", maxWidth: "520px", borderRadius: "20px", padding: "28px", border: "1px solid #334155", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }}>
-            <h3 style={{ margin: "0 0 18px 0", color: "white", fontSize: "20px", fontWeight: 800 }}>🚑 Provision Official Ambulance Unit</h3>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl p-6 border border-slate-200 shadow-xl space-y-5">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Car className="w-5 h-5 text-indigo-600" /> Provision Ambulance Unit
+              </h3>
+              <button onClick={() => setShowAmbulanceModal(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            <form onSubmit={handleProvisionAmbulance}>
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>Driver Name</label>
-                <input type="text" required placeholder="e.g. Driver Ramesh" value={ambulanceForm.driverName} onChange={(e) => setAmbulanceForm({ ...ambulanceForm, driverName: e.target.value })} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", fontSize: "14px" }} />
+            <form onSubmit={handleProvisionAmbulance} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Driver Name</label>
+                <input 
+                  type="text" 
+                  required 
+                  placeholder="e.g. Driver Ramesh" 
+                  value={ambulanceForm.driverName} 
+                  onChange={(e) => setAmbulanceForm({ ...ambulanceForm, driverName: e.target.value })} 
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-slate-400 focus:outline-none" 
+                />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "14px" }}>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>Driver Email</label>
-                  <input type="email" required placeholder="driver@ems.com" value={ambulanceForm.email} onChange={(e) => setAmbulanceForm({ ...ambulanceForm, email: e.target.value })} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", fontSize: "14px" }} />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Driver Email</label>
+                  <input 
+                    type="email" 
+                    required 
+                    placeholder="driver@ems.com" 
+                    value={ambulanceForm.email} 
+                    onChange={(e) => setAmbulanceForm({ ...ambulanceForm, email: e.target.value })} 
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-slate-400 focus:outline-none" 
+                  />
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>Driver Phone</label>
-                  <input type="text" required placeholder="10 Digits" value={ambulanceForm.phone} onChange={(e) => setAmbulanceForm({ ...ambulanceForm, phone: e.target.value })} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", fontSize: "14px" }} />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Driver Phone</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="10 Digits" 
+                    value={ambulanceForm.phone} 
+                    onChange={(e) => setAmbulanceForm({ ...ambulanceForm, phone: e.target.value })} 
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-slate-400 focus:outline-none" 
+                  />
                 </div>
               </div>
 
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#cbd5e1", marginBottom: "4px" }}>Vehicle License Plate #</label>
-                <input type="text" required placeholder="e.g. AP 39 X 1234" value={ambulanceForm.vehicleNumber} onChange={(e) => setAmbulanceForm({ ...ambulanceForm, vehicleNumber: e.target.value })} style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #334155", backgroundColor: "#0f172a", color: "white", fontSize: "14px" }} />
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Vehicle License Plate #</label>
+                <input 
+                  type="text" 
+                  required 
+                  placeholder="e.g. AP 39 X 1234" 
+                  value={ambulanceForm.vehicleNumber} 
+                  onChange={(e) => setAmbulanceForm({ ...ambulanceForm, vehicleNumber: e.target.value })} 
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-slate-400 focus:outline-none" 
+                />
               </div>
 
-              <div style={{ display: "flex", gap: "12px", marginTop: "20px" }}>
-                <button type="submit" disabled={loading} style={{ flex: 1, backgroundColor: "#2563eb", color: "white", border: "none", padding: "12px", borderRadius: "8px", fontWeight: 800, fontSize: "14px", cursor: "pointer" }}>
-                  ✅ Provision Ambulance
+              <div className="flex gap-3 pt-3">
+                <button 
+                  type="submit" 
+                  disabled={loading} 
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-all shadow-xs cursor-pointer"
+                >
+                  Provision Ambulance
                 </button>
-                <button type="button" onClick={() => setShowAmbulanceModal(false)} style={{ backgroundColor: "#334155", color: "white", border: "none", padding: "12px 18px", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowAmbulanceModal(false)} 
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-sm transition-all border border-slate-300 cursor-pointer"
+                >
                   Cancel
                 </button>
               </div>
