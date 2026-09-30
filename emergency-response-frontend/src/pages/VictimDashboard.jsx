@@ -30,6 +30,10 @@ export default function VictimDashboard() {
   });
   const [otpSent, setOtpSent] = useState(false);
 
+  // Live Device GPS Coordinates State (Default fallback: Guntur area)
+  const [userCoords, setUserCoords] = useState({ latitude: 16.3067, longitude: 80.4365 });
+  const [gpsStatus, setGpsStatus] = useState("fetching"); // 'fetching' | 'live' | 'fallback'
+
   // Registered SOS Category Form
   const [selectedCategory, setSelectedCategory] = useState("CARDIAC");
   const [landmark, setLandmark] = useState("");
@@ -43,6 +47,31 @@ export default function VictimDashboard() {
     bloodGroup: "O+",
     emergencyContact: ""
   });
+
+  useEffect(() => {
+    fetchLiveGpsLocation();
+  }, []);
+
+  const fetchLiveGpsLocation = () => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserCoords({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          });
+          setGpsStatus("live");
+        },
+        (err) => {
+          console.log("GPS fetch error, using default fallback location", err);
+          setGpsStatus("fallback");
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      setGpsStatus("fallback");
+    }
+  };
 
   useEffect(() => {
     loadCurrentUser();
@@ -99,7 +128,7 @@ export default function VictimDashboard() {
     try {
       const token = localStorage.getItem("token");
       const res = await api.post(
-        `/api/emergency/sos/${user.id}?latitude=16.3067&longitude=80.4365&landmark=${encodeURIComponent(landmark)}&category=${selectedCategory}&description=${encodeURIComponent(description)}`,
+        `/api/emergency/sos/${user.id}?latitude=${userCoords.latitude}&longitude=${userCoords.longitude}&landmark=${encodeURIComponent(landmark)}&category=${selectedCategory}&description=${encodeURIComponent(description)}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -137,8 +166,8 @@ export default function VictimDashboard() {
         category: expressData.category,
         landmark: expressData.landmark,
         description: expressData.description,
-        latitude: 16.3067,
-        longitude: 80.4365
+        latitude: userCoords.latitude,
+        longitude: userCoords.longitude
       });
       setActiveRequest(res.data);
       setShowExpressModal(false);
@@ -402,13 +431,31 @@ export default function VictimDashboard() {
                 })}
               </div>
 
+              {/* Live Device GPS Status Badge */}
+              <div style={{ marginBottom: "20px", padding: "12px 16px", backgroundColor: gpsStatus === "live" ? "#f0fdf4" : "#fefce8", border: gpsStatus === "live" ? "1px solid #bbf7d0" : "1px solid #fef08a", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <MapPin size={18} color={gpsStatus === "live" ? "#16a34a" : "#ca8a04"} />
+                  <div>
+                    <strong style={{ fontSize: "13px", color: gpsStatus === "live" ? "#15803d" : "#854d0e", display: "block" }}>
+                      {gpsStatus === "live" ? "🟢 Live Device GPS Detected (Active Coordinates)" : "📍 Standard Base Coordinates"}
+                    </strong>
+                    <span style={{ fontSize: "12px", color: "#475569", fontFamily: "monospace" }}>
+                      Latitude: {userCoords.latitude} | Longitude: {userCoords.longitude}
+                    </span>
+                  </div>
+                </div>
+                <button type="button" onClick={fetchLiveGpsLocation} style={{ backgroundColor: "#white", border: "1px solid #cbd5e1", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", color: "#2563eb", fontWeight: 700, fontSize: "12px" }}>
+                  🔄 Refresh GPS
+                </button>
+              </div>
+
               {/* Form Inputs */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
                 <div>
                   <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "#334155", marginBottom: "6px" }}>📍 {t.landmarkCoords}</label>
                   <input
                     type="text"
-                    placeholder="e.g. Near Main Gate, Opp Apollo Pharmacy"
+                    placeholder="e.g. Near Main Gate, Nambur"
                     value={landmark}
                     onChange={e => setLandmark(e.target.value)}
                     style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px" }}
